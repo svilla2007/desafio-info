@@ -1,0 +1,89 @@
+// C++ code
+//
+#include <Adafruit_LiquidCrystal.h>
+
+int analogPin = 0;
+int pulsador1 = 1;
+int pulsador2 = 2;
+int val = 0;
+int pul1=0;
+int pul2=0;
+int i=0;
+
+unsigned long lastTime = 0;
+unsigned long duration = 1000; // Medir cada 1 segundo
+unsigned long cycleStartTime = 0;
+int cycleCount = 0;
+float frequency = 2.0;
+float amplitude = 0.0;
+
+Adafruit_LiquidCrystal lcd_1(0);
+
+void setup()
+{
+  Serial.begin(9600);
+  lcd_1.begin(16, 2);
+  pinMode(analogPin, INPUT);
+  pinMode(pulsador1, INPUT);
+  pinMode(pulsador2, INPUT);
+}
+
+void loop()
+{
+  
+  
+  pul1 = analogRead(pulsador1);
+  //Serial.println(pul1);
+  pul2 = analogRead(pulsador2);
+  
+  
+  if(pul1>500){
+    i=1;
+    cycleStartTime = millis();
+    cycleCount = 0;}
+  
+    if(i==1){  
+    
+    
+  val = analogRead(analogPin);
+  Serial.println(val);
+  lcd_1.setCursor(0, 1);
+  lcd_1.setBacklight(1);
+  lcd_1.setBacklight(0);
+      // Cálculo de la amplitud
+  amplitude = (val / 1023.0) * 5.0;  
+      
+    if (val > 512 && analogRead(analogPin) <= 512) { // Detección de cruce por cero (bajo a alto)
+      cycleCount++;
+      }
+ if (millis() - lastTime >= duration) {
+      lastTime = millis();
+      frequency = (float)cycleCount / (duration / 1000.0);
+
+      // Mostrar los valores en el LCD
+      lcd_1.setCursor(0, 0);
+      lcd_1.print("F: ");
+      lcd_1.print(frequency);
+      lcd_1.print(" Hz");
+
+      lcd_1.setCursor(0, 1);
+      lcd_1.print("A: ");
+      lcd_1.print(amplitude);
+      lcd_1.print(" V");
+
+      cycleCount = 0; // Reiniciar el contador de ciclos
+    }
+
+    // Serial print para depuración
+    Serial.print("Amplitud: ");
+    Serial.print(amplitude);
+    Serial.print(" V, Frecuencia: ");
+    Serial.print(frequency);
+    Serial.println(" Hz");
+
+    // Apagar la medición si se presiona el pulsador 2
+    if (pul2 > 500) {
+      i = 0;
+    }
+  }
+}
