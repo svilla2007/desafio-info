@@ -10,12 +10,12 @@ int pul1=0;
 int pul2=0;
 int i=0;
 
-unsigned long lastTime = 0;
-unsigned long duration = 1000; // Medir cada 1 segundo
-unsigned long cycleStartTime = 0;
-int cycleCount = 0;
-float frequency = 2.0;
-float amplitude = 0.0;
+unsigned long tfinal = 0;
+unsigned long duracion = 100; 
+unsigned long tinicial = 0;
+int reinicio = 0;
+float frequencia = 0.0;
+float amplitud = 0.0;
 
 Adafruit_LiquidCrystal lcd_1(0);
 
@@ -39,8 +39,8 @@ void loop()
   
   if(pul1>500){
     i=1;
-    cycleStartTime = millis();
-    cycleCount = 0;}
+    tinicial = millis();
+    reinicio = 0;}
   
     if(i==1){  
     
@@ -50,35 +50,35 @@ void loop()
   lcd_1.setCursor(0, 1);
   lcd_1.setBacklight(1);
   lcd_1.setBacklight(0);
-      // Cálculo de la amplitud
-  amplitude = (val / 1023.0) * 5.0;  
+  
+  amplitud = (val / 1023.0) * 5.0;  
       
-    if (val > 512 && analogRead(analogPin) <= 512) { // Detección de cruce por cero (bajo a alto)
-      cycleCount++;
+    if (val > 512 && analogRead(analogPin) <= 512) { 
+      reinicio++;
       }
- if (millis() - lastTime >= duration) {
-      lastTime = millis();
-      frequency = (float)cycleCount / (duration / 1000.0);
+ if (millis() - tfinal >= duracion) {
+      tfinal = millis();
+      frequencia = (float)reinicio / (duracion / 1000.0);
 
       // Mostrar los valores en el LCD
       lcd_1.setCursor(0, 0);
       lcd_1.print("F: ");
-      lcd_1.print(frequency);
+      lcd_1.print(frequencia);
       lcd_1.print(" Hz");
 
       lcd_1.setCursor(0, 1);
       lcd_1.print("A: ");
-      lcd_1.print(amplitude);
+      lcd_1.print(amplitud);
       lcd_1.print(" V");
 
-      cycleCount = 0; // Reiniciar el contador de ciclos
+      reinicio = 0; // Reiniciar el contador de ciclos
     }
 
     // Serial print para depuración
     Serial.print("Amplitud: ");
-    Serial.print(amplitude);
+    Serial.print(amplitud);
     Serial.print(" V, Frecuencia: ");
-    Serial.print(frequency);
+    Serial.print(frequencia);
     Serial.println(" Hz");
 
     // Apagar la medición si se presiona el pulsador 2
