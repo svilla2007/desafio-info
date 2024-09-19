@@ -1,0 +1,91 @@
+#include <Adafruit_LiquidCrystal.h>
+
+Adafruit_LiquidCrystal lcd(0); // Configura el LCD
+
+const int signalPin = A0;       // Pin analógico para la señal
+const int startButtonPin = 2;   // Pin del botón de inicio
+const int stopButtonPin = 3;    // Pin del botón de finalización
+unsigned long lastTime = 0;
+int lastValue = 0;
+int frequency = 0;
+float amplitude = 0;
+bool isRunning = false;         // Variable para controlar si el programa está en ejecución
+String waveType = "Desconocida"; // Tipo de onda
+bool lastStartState = HIGH;     // Último estado del botón de inicio
+bool lastStopState = HIGH;      // Último estado del botón de parada
+
+void setup() {
+  pinMode(startButtonPin, INPUT_PULLUP); // Configura el botón de inicio
+  pinMode(stopButtonPin, INPUT_PULLUP);  // Configura el botón de finalización
+  lcd.begin(16, 2);
+  lcd.print("Presione inicio");
+  Serial.begin(9600);
+}
+
+void loop() {
+  bool startState = digitalRead(startButtonPin); // Leer estado actual del botón de inicio
+  bool stopState = digitalRead(stopButtonPin);   // Leer estado actual del botón de parada
+
+  // Iniciar si el botón de inicio es presionado
+  if (startState == LOW && lastStartState == HIGH) {
+    isRunning = true;
+    lcd.clear();
+  }
+  
+  // Detener si el botón de parada es presionado
+  if (stopState == LOW && lastStopState == HIGH) {
+    isRunning = false;
+    lcd.clear();
+    lcd.print("Programa detenido");
+  }
+
+  // Actualizar el estado de los botones
+  lastStartState = startState;
+  lastStopState = stopState;
+
+  if (isRunning) {
+    int currentValue = analogRead(signalPin);
+        waveType = identifyWave(currentValue, lastValue);
+    // Detección de cruce por cero para frecuencia
+    if (currentValue > 512 && lastValue <= 512) {
+      frequency++;
+    }
+    
+    // Medir amplitud
+    amplitude = (float)(currentValue * (5.0 / 1023.0));
+    
+    // Identificar tipo de onda
+
+    
+    // Mostrar en LCD cada segundo
+    if (millis() - lastTime >= 1000) {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("F: "); lcd.print(frequency); lcd.print(" Hz");
+      lcd.setCursor(0, 1);
+      lcd.print("A: "); lcd.print(amplitude, 2); lcd.print("V");
+      lcd.setCursor(9, 1);
+      lcd.print(waveType);
+      
+      frequency = 0; // Reiniciar frecuencia
+      lastTime = millis();
+    }
+    
+    lastValue = currentValue;
+  }
+}
+
+// Función para identificar la forma de onda
+String identifyWave(int currentValue, int lastValue) {
+  int diff = abs(currentValue - lastValue);
+  Serial.println(diff);
+  if (diff < 50) {
+    return "Senoidal";  // Cambio muy suave
+  } else if (diff > 300) {
+    return "Cuadrada";  // Cambio muy brusco
+  } else if (currentValue > lastValue) {
+    return "Triangular"; // Pendiente ascendente moderada
+  } else {
+    return "D. de sierra"; // Pendiente descendente moderada
+  }
+}
