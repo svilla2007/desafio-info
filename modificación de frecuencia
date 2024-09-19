@@ -1,123 +1,84 @@
 #include <Adafruit_LiquidCrystal.h>
 
-int analogPin = 0;  // Pin para leer la señal de entrada
-int pulsador1 = 1;  // Pin para iniciar la medición
-int pulsador2 = 2;  // Pin para detener la medición
-int val = 0;
-int pul1 = 0;
-int pul2 = 0;
-int i = 0;
-unsigned long tfinal = 0;
-unsigned long duracion = 100;  // Duración de medición (1 segundo)
-unsigned long tinicial = 0;
-int reinicio = 0;  // Contador de cruces por cero
-float frecuencia = 0.0;
-float amplitud = 0.0;
+Adafruit_LiquidCrystal lcd(0); // Configura el LCD
 
-Adafruit_LiquidCrystal lcd_1(0);
-
-String identificarFormaDeOnda(float freq) {
-    if (freq < 1) {
-        return "Desconocida";
-    } else if (freq < 5) {
-        return "Senoidal";
-    } else if (freq < 10) {
-        return "Cuadrada";
-    } else if (freq < 15) {
-        return "Triangular";
-    } else {
-        return "Desconocida";
-    }
-}
-void limpiarLCD() {
-    lcd_1.clear(); // Limpiar toda la pantalla
-}
+const int signalPin = A0;       // Pin analógico para la señal
+const int startButtonPin = 2;   // Pin del botón de inicio
+const int stopButtonPin = 3;    // Pin del botón de finalización
+unsigned long lastTime = 0;
+int lastValue = 0;
+int frequency = 0;
+float amplitude = 0;
+bool isRunning = false;         // Variable para controlar si el programa está en ejecución
+bool startPressed = false;      // Estado del botón de inicio
+bool stopPressed = false;       // Estado del botón de parada
 
 void setup() {
+  pinMode(startButtonPin, INPUT_PULLUP); // Configura el botón de inicio
+  pinMode(stopButtonPin, INPUT_PULLUP);  // Configura el botón de finalización
+  lcd.begin(16, 2);
+  lcd.print("Presione inicio");
   Serial.begin(9600);
-  lcd_1.begin(16, 2);
-  pinMode(analogPin, INPUT);
-  pinMode(pulsador1, INPUT);
-  pinMode(pulsador2, INPUT);
 }
 
 void loop() {
-  pul1 = analogRead(pulsador1);
-  pul2 = analogRead(pulsador2);
+  // Leer el estado de los botones
+  bool startButtonState = digitalRead(startButtonPin) == LOW; // Verifica si el botón de inicio está presionado
+  bool stopButtonState = digitalRead(stopButtonPin) == LOW;   // Verifica si el botón de parada está presionado
 
-  if (pul1 > 100) {  // Iniciar medición cuando se presiona el pulsador 1
-    i = 1;
-    tinicial = millis();  // Guardar tiempo inicial
-    reinicio = 0;       // Reiniciar contador de cruces por cero
+  // Si el botón de inicio está presionado y no lo estaba antes, iniciar el programa
+  if (startButtonState && !startPressed) {
+    isRunning = true;
+    lcd.clear();
+     lcd.setCursor(0, 0);
+      lcd.print("F: ");
+      lcd.print(frequency);
+      lcd.print(" Hz");
+   
+      lcd.setCursor(0, 1);
+      lcd.print("A: ");
+      lcd.print(amplitude);
+      lcd.print(" V");
+    delay(20); // Pequeño retraso para evitar rebotes
+  }
+  
+  // Si el botón de parada está presionado y no lo estaba antes, detener el programa
+  if (stopButtonState && !stopPressed) {
+    isRunning = false;
+    lcd.clear();
+    lcd.print("Programa detenido");
+    delay(20); // Pequeño retraso para evitar rebotes
   }
 
-  if (i == 1) {  // Si la medición está activa
-    val = analogRead(analogPin);
-    Serial.println(val);
-    lcd_1.setCursor(0, 1);
-    lcd_1.setBacklight(1);
-    lcd_1.setBacklight(0);
+  // Actualizar el estado de los botones
+  startPressed = startButtonState;
+  stopPressed = stopButtonState;
 
-    amplitud = (val / 1023.0) * 5.0;  // Calcular la amplitud en voltios
-  
-    // Detección de cruce por cero (punto medio en señal de 10 bits)
-    static int prevVal = 512;  // Valor anterior para detectar cruce
-    if ((val > 512 && prevVal <= 512) || (val < 512 && prevVal >= 512)) {
-      reinicio++;  // Incrementar contador de cruces por cero
+  // Si el programa está en ejecución, realizar las mediciones
+  if (isRunning) {
+    int currentValue = analogRead(signalPin);
+    
+    if (currentValue > 512 && lastValue <= 512) {
+      frequency++;
     }
-    prevVal = val;  // Guardar valor anterior
-  
-    // Comprobar si ha pasado el tiempo de medición
-    if (millis() - tinicial >= duracion) {
-      tfinal = millis();  // Guardar tiempo final de medición
-      
-	  float ciclosCompletos = reinicio / 2.0;
-      // Calcular la frecuencia
+    
+    amplitude = (float)(currentValue * (5.0 / 1023.0)); // Convertir a voltios
 
-      // Cada dos cruces por cero representan un ciclo completo de la señal
-         frecuencia = (reinicio / 2.0) / (duracion / 1000.0);
-      // Mostrar los valores en el LCD
-      limpiarLCD();
-      lcd_1.setCursor(0, 0);
-      lcd_1.print("F: ");
-      lcd_1.print(frecuencia);
-      lcd_1.print(" Hz");
+    if (millis() - lastTime >= 1000) {
+     lcd.setCursor(0, 0);
+      lcd.print("F: ");
+      lcd.print(frequency);
+      lcd.print(" Hz");
    
-      lcd_1.setCursor(0, 1);
-      lcd_1.print("A: ");
-      lcd_1.print(amplitud);
-      lcd_1.print(" V");
-        //
-      // Depuración en el monitor serie
-      Serial.print("Amplitud: ");
-      Serial.print(amplitud);
-      Serial.print(" V, Frecuencia: ");
-      Serial.print(frecuencia);
-      Serial.println(" Hz");
+      lcd.setCursor(0, 1);
+      lcd.print("A: ");
+      lcd.print(amplitude);
+      lcd.print(" V");
       
-      
-      
-      
-      String formaOnda = identificarFormaDeOnda(frecuencia);
-      limpiarLCD(); // Limpiar el LCD antes de imprimir la forma de onda
-      lcd_1.setCursor(0, 0);
-      lcd_1.print("Forma: ");
-      lcd_1.print(formaOnda);
-      lcd_1.print("    "); // Limpiar el resto de la línea
-	  delay(5);
-
-
-      // Reiniciar la medición
-      
-
-      reinicio = 0;
-      limpiarLCD();
-      i=0;
+      frequency = 0; // Reiniciar frecuencia
+      lastTime = millis();
     }
-    // Detener la medición si se presiona el pulsador 2
-    if (pul2 > 100) {
-      i = 0;
-    }
+    
+    lastValue = currentValue;
   }
 }
-
